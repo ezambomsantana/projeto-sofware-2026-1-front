@@ -3,7 +3,8 @@ import React, { useEffect, useState } from "react";
 import LoginButton from "./LoginButton";
 import LogoutButton from "./LogoutButton";
 
-const BASE_URL = "http://18.228.48.67:8080";
+const BASE_URL_USERS = "/api/users"
+const BASE_URL_CONNECTIONS = "/api/connections";
 
 
 export default function PessoasApp() {
@@ -42,15 +43,32 @@ export default function PessoasApp() {
   async function fetchConnections() {
     setLoading(true);
     setError(null);
+
     try {
-      const res = await fetch(`${BASE_URL}/connections/c579b481-c395-4498-bf19-6f2247e0b80d`,{
+      // 1. Busca o usuário pelo email
+      const userRes = await fetch(`${BASE_URL_USERS}/users/${user.email}/email`);
+      
+      if (!userRes.ok) {
+        throw new Error(`Erro ao buscar usuário: ${userRes.status}`);
+      }
+
+      const userData = await userRes.json();
+      const userId = userData.id;
+
+      // 2. Busca as connections usando o id
+      const connRes = await fetch(`${BASE_URL_CONNECTIONS}/connections/${userId}`, {
         headers: {
           // Authorization: `Bearer ${token}`,
         },
       });
-      if (!res.ok) throw new Error(`Erro ao carregar: ${res.status}`);
-      const data = await res.json();
-      setPessoas(Array.isArray(data) ? data : []);
+
+      if (!connRes.ok) {
+        throw new Error(`Erro ao carregar conexões: ${connRes.status}`);
+      }
+
+      const connData = await connRes.json();
+      setPessoas(Array.isArray(connData) ? connData : []);
+
     } catch (err) {
       setError(err.message);
     } finally {
