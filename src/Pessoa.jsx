@@ -11,7 +11,8 @@ export default function PessoasApp() {
   const [pessoas, setPessoas] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [token, setToken] = useState("")
+  const [token, setToken] = useState("");
+  const [isAdmin, setIsAdmin] = useState(false);
 
   const {
     user,
@@ -20,18 +21,21 @@ export default function PessoasApp() {
   } = useAuth0();
 
   useEffect(() => {
-    const fetchToken = async () => {
+    const fetchTokenAndRoles = async () => {
       try {
         const accessToken = await getAccessTokenSilently();
-        console.log(accessToken)
         setToken(accessToken);
+
+        const payload = JSON.parse(atob(accessToken.split(".")[1]));
+        const roles = payload["https://social-insper.com/roles"] || [];
+        setIsAdmin(roles.includes("ADMIN"));
       } catch (e) {
-        console.error('Erro ao buscar token:', e);
+        console.error("Erro ao buscar token:", e);
       }
     };
 
     if (isAuthenticated) {
-      fetchToken();
+      fetchTokenAndRoles();
     }
   }, [isAuthenticated, getAccessTokenSilently]);
 
@@ -76,6 +80,35 @@ export default function PessoasApp() {
     }
   }
 
+
+    async function deleteConnection(fromUserId, toUserId) {
+    try {
+      const res = await fetch(`${BASE_URL_CONNECTIONS}/connections`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          fromUserId,
+          toUserId,
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error(`Erro ao excluir conexão: ${res.status}`);
+      }
+
+      setPessoas((prev) =>
+        prev.filter(
+          (p) => !(p.fromUserId === fromUserId && p.toUserId === toUserId)
+        )
+      );
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
   return (
     <div className="min-h-screen p-6 bg-gray-50 font-sans">
 
@@ -114,6 +147,15 @@ export default function PessoasApp() {
                     <div className="text-right">
                       <div className="font-medium">{s.toUserId ?? "-"}</div>
                     </div>
+
+                      {isAdmin && (
+                        <button
+                          onClick={() => deleteConnection(s.fromUserId, s.toUserId)}
+                          className="mt-2 px-3 py-1 bg-red-600 text-white rounded"
+                        >
+                          Excluir
+                        </button>
+                      )}
                   </div>
                 </li>
               ))}
